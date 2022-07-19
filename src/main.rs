@@ -1,8 +1,8 @@
-use std::f32::consts::PI;
-use bevy::prelude::*;
 use bevy::utils::tracing::Event;
+use bevy::{ecs::bundle, prelude::*};
+use std::f32::consts::PI;
 
-use crate::input::{InputCommand, InputEvent, InputPlugin};
+use crate::input::{input_system, InputCommand, InputEvent, InputPlugin};
 
 mod input;
 
@@ -15,13 +15,26 @@ struct Name(String);
 #[derive(Component)]
 struct MovementSpeed(f32);
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+pub enum PlayerStateEnum {
+    IDLE,
+    MOVING,
+}
+
+#[derive(Component)]
+struct PlayerState {
+    state: PlayerStateEnum,
+    animation: Option<usize>,
+}
+
 #[derive(Bundle)]
 struct PlayerBundle {
     _p: Player,
     name: Name,
     movement_speed: MovementSpeed,
+    state: PlayerState,
     #[bundle]
-    pbr_bundle: PbrBundle,
+    transform_bundle: TransformBundle,
 }
 
 impl Default for PlayerBundle {
@@ -29,8 +42,12 @@ impl Default for PlayerBundle {
         return PlayerBundle {
             _p: Player,
             name: Name("unknown".to_string()),
-            movement_speed: MovementSpeed(2.0),
-            pbr_bundle: PbrBundle::default(),
+            movement_speed: MovementSpeed(3.0),
+            state: PlayerState {
+                state: PlayerStateEnum::IDLE,
+                animation: None,
+            },
+            transform_bundle: TransformBundle::default(),
         };
     }
 }
@@ -57,11 +74,20 @@ impl Default for EnemyBundle {
     }
 }
 
+struct Animations(Vec<Handle<AnimationClip>>);
+
 fn spawn_system(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<AssetServer>,
+    scene_spawner: ResMut<SceneSpawner>,
 ) {
+    // Insert a resource with the current scene information
+    commands.insert_resource(Animations(vec![
+        asset_server.load("silva_main_char.glb#Animation0"),
+        asset_server.load("silva_main_char.glb#Animation1"),
+    ]));
 
     // Floor
     commands.spawn_bundle(PbrBundle {
@@ -70,23 +96,25 @@ fn spawn_system(
         ..default()
     });
 
-    let player_pbr_bundle = PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(StandardMaterial {
-            base_color: Color::RED,
-            perceptual_roughness: 1.0,
-            ..default()
-        }),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        ..default()
-    };
+    // Player
+    commands
+        .spawn_bundle(PlayerBundle {
+            name: Name("Player_1".to_string()),
+            transform_bundle: TransformBundle {
+                local: Transform {
+                    translation: Vec3::new(0.0, 0.0, 0.0),
+                    scale: Vec3::new(1.0, 1.0, 1.0),
+                    ..default()
+                },
+                ..default()
+            },
+            ..PlayerBundle::default()
+        })
+        .with_children(|cell| {
+            cell.spawn_scene(asset_server.load("silva_main_char.glb#Scene0"));
+        });
 
-    commands.spawn_bundle(PlayerBundle {
-        name: Name("Player_1".to_string()),
-        pbr_bundle: player_pbr_bundle,
-        ..PlayerBundle::default()
-    });
-
+    // Enemies
     for i in 0..3 {
         commands.spawn_bundle(EnemyBundle {
             name: Name(format!("enemy_{i}")),
@@ -117,8 +145,12 @@ fn spawn_system(
             },
             ..default()
         },
-        transform: Transform::from_xyz(0.0, 8.0, 0.0)
-            .with_rotation(Quat::from_euler(EulerRot::XYZ, -(PI / 4.0), (PI / 8.0), 0.0)),
+        transform: Transform::from_xyz(0.0, 8.0, 0.0).with_rotation(Quat::from_euler(
+            EulerRot::XYZ,
+            -(PI / 4.0),
+            (PI / 8.0),
+            0.0,
+        )),
         ..default()
     });
 
@@ -131,10 +163,10 @@ fn spawn_system(
 
 fn player_movement_system(
     mut input_event: EventReader<InputEvent>,
-    mut query: Query<(&mut Transform, &MovementSpeed), With<Player>>,
+    mut query: Query<(&mut Transform, &MovementSpeed, &mut PlayerState), With<Player>>,
     time: Res<Time>,
 ) {
-    for (mut transform, speed) in query.iter_mut() {
+    for (mut transform, speed, mut state) in query.iter_mut() {
         let mut direction = Vec3::default();
         for event in input_event.iter() {
             match event.0 {
@@ -146,7 +178,52 @@ fn player_movement_system(
             }
         }
         if direction.length() > 0.0 {
-            transform.translation += direction.normalize() * speed.0 * time.delta_seconds();
+            let normalized_dir = direction.normalize();
+            transform.translation += normalized_dir * speed.0 * time.delta_seconds();
+            let angle = normalized_dir.angle_between(Vec3::new(0.0, 0.0, 1.0));
+            transform.rotation = Quat::from_axis_angle(
+                Vec3::new(0.0, 1.0, 0.0),
+                if normalized_dir.x > 0.0 {
+                    angle
+                } else {
+                    -angle
+                },
+            );
+            state.state = PlayerStateEnum::MOVING;
+        } else {
+            state.state = PlayerStateEnum::IDLE;
+        }
+    }
+}
+
+fn player_animation_system(
+    animations: Res<Animations>,
+    mut player_query: Query<&mut AnimationPlayer>,
+    mut state_query: Query<&mut PlayerState>,
+) {
+    let idle_index = 0;
+    let run_index = 1;
+
+    if let Ok(mut player) = player_query.get_single_mut() {
+        for mut state in state_query.iter_mut() {
+            match state.state {
+                PlayerStateEnum::IDLE => {
+                    if state.animation.is_none() || state.animation.unwrap() != idle_index {
+                        player.play(animations.0[idle_index].clone_weak())
+                        .set_speed(1.0)
+                        .repeat();
+                        state.animation = Some(idle_index);
+                    }
+                }
+                PlayerStateEnum::MOVING => {
+                    if state.animation.is_none() || state.animation.unwrap() != run_index {
+                        player.play(animations.0[run_index].clone_weak())
+                        .set_speed(1.3)
+                        .repeat();
+                        state.animation = Some(run_index);
+                    }
+                }
+            };
         }
     }
 }
@@ -157,8 +234,9 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(InputPlugin)
         .add_startup_system(spawn_system)
-        .add_startup_system_to_stage(StartupStage::PostStartup, debug_spawn_system)
-        .add_system(player_movement_system)
+        // .add_startup_system_to_stage(StartupStage::PostStartup, debug_spawn_system)
+        .add_system(player_movement_system.after(input_system))
+        .add_system(player_animation_system.after(player_movement_system))
         .run();
 }
 

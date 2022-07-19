@@ -38,8 +38,8 @@ pub struct InputPlugin;
 impl Plugin for InputPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<InputEvent>()
-            .add_system(input_system.after(InputSystem))
-            .add_system(debug_input_system.after(input_system));
+            .add_system(input_system.after(InputSystem));
+            // .add_system(debug_input_system.after(input_system));
     }
 
     fn name(&self) -> &str {
