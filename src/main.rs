@@ -209,21 +209,40 @@ fn player_animation_system(
             match state.state {
                 PlayerStateEnum::IDLE => {
                     if state.animation.is_none() || state.animation.unwrap() != idle_index {
-                        player.play(animations.0[idle_index].clone_weak())
-                        .set_speed(1.0)
-                        .repeat();
+                        player
+                            .play(animations.0[idle_index].clone_weak())
+                            .set_speed(1.0)
+                            .repeat();
                         state.animation = Some(idle_index);
                     }
                 }
                 PlayerStateEnum::MOVING => {
                     if state.animation.is_none() || state.animation.unwrap() != run_index {
-                        player.play(animations.0[run_index].clone_weak())
-                        .set_speed(1.3)
-                        .repeat();
+                        player
+                            .play(animations.0[run_index].clone_weak())
+                            .set_speed(1.3)
+                            .repeat();
                         state.animation = Some(run_index);
                     }
                 }
             };
+        }
+    }
+}
+
+fn camera_follow_player_system(
+    mut camera_query: Query<&mut Transform, With<Camera>>,
+    player_query: Query<&Transform, (With<Player>, Without<Camera>)>,
+    mut inital_position: Local<Option<Vec3>>,
+) {
+    if let Ok(mut camera_transform) = camera_query.get_single_mut() {
+        if inital_position.is_none() {
+            *inital_position = Some(camera_transform.translation);
+        }
+        if let Ok(player_transform) = player_query.get_single() {
+            
+            let pt = player_transform.translation;
+            camera_transform.translation = (*inital_position).unwrap() + Vec3::new(pt.x, 0.0, pt.z);
         }
     }
 }
@@ -237,6 +256,7 @@ fn main() {
         // .add_startup_system_to_stage(StartupStage::PostStartup, debug_spawn_system)
         .add_system(player_movement_system.after(input_system))
         .add_system(player_animation_system.after(player_movement_system))
+        .add_system(camera_follow_player_system)
         .run();
 }
 
