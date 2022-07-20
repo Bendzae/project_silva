@@ -1,6 +1,6 @@
 use bevy::{ecs::system::Resource, prelude::*};
 // use bevy_inspector_egui::Inspectable;
-use std::{ops::Deref, f32::consts::E};
+use std::{f32::consts::E, ops::Deref};
 
 use crate::PlayerState;
 
@@ -30,6 +30,7 @@ impl CrossFadePlayer {
         to: Handle<AnimationClip>,
         transition_time: f32,
     ) -> &mut Self {
+        println!("crossfade");
         *self = Self {
             from: Some(from),
             to: Some(to),
@@ -75,19 +76,25 @@ fn crossfade_player_system(
 
         if let Some(from_clip) = animations.get(crossfade_player.from.as_ref().unwrap()) {
             if let Some(to_clip) = animations.get(crossfade_player.to.as_ref().unwrap()) {
+                // Stop any other animation
+                animation_player.pause();
+                // Get elapsed time of old animation
+                let old_elapsed = animation_player.elapsed();
                 // Forward time
                 crossfade_player.elapsed += time.delta_seconds();
                 let mut elapsed = crossfade_player.elapsed;
 
-                let fade_factor = elapsed / crossfade_player.transition_time;
+                let mut fade_factor = elapsed / crossfade_player.transition_time;
 
-                if elapsed >= crossfade_player.transition_time || fade_factor > 1.0 {
-                    animation_player
-                        .play(crossfade_player.to.as_ref().unwrap().clone_weak())
-                        .repeat();
+                if fade_factor >= 1.0 {
+
+                    fade_factor = 1.0; // set to exactly one so the last step of the interpolation is exact
+
+                    let next_animation = crossfade_player.to.as_ref().unwrap().clone_weak();
 
                     crossfade_player.reset();
-                    continue;
+
+                    animation_player.play(next_animation).repeat();
                 }
 
                 'entity: for (path, from_curves) in from_clip.curves() {
@@ -137,7 +144,6 @@ fn crossfade_player_system(
                             }
                         }
                         // from_curves
-                        animation_player.pause();
                         for curve in from_curves {
                             match &curve.keyframes {
                                 Keyframes::Rotation(keyframes) => {
