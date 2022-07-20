@@ -1,9 +1,12 @@
-use bevy::utils::tracing::Event;
-use bevy::{ecs::bundle, prelude::*};
+use animation_extensions::{AnimationExtensionsPlugin, CrossFadePlayer};
+use bevy::prelude::*;
+use bevy_inspector_egui::{Inspectable, WorldInspectorPlugin};
 use std::f32::consts::PI;
 
 use crate::input::{input_system, InputCommand, InputEvent, InputPlugin};
 
+// mod custom_animation;
+mod animation_extensions;
 mod input;
 
 #[derive(Component)]
@@ -15,13 +18,13 @@ struct Name(String);
 #[derive(Component)]
 struct MovementSpeed(f32);
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Inspectable)]
 pub enum PlayerStateEnum {
     IDLE,
     MOVING,
 }
 
-#[derive(Component)]
+#[derive(Component, Inspectable)]
 struct PlayerState {
     state: PlayerStateEnum,
     animation: Option<usize>,
@@ -35,6 +38,7 @@ struct PlayerBundle {
     state: PlayerState,
     #[bundle]
     transform_bundle: TransformBundle,
+    crossfade_player: CrossFadePlayer,
 }
 
 impl Default for PlayerBundle {
@@ -48,6 +52,7 @@ impl Default for PlayerBundle {
                 animation: None,
             },
             transform_bundle: TransformBundle::default(),
+            crossfade_player: CrossFadePlayer::default(),
         };
     }
 }
@@ -81,7 +86,7 @@ fn spawn_system(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
-    scene_spawner: ResMut<SceneSpawner>,
+    mut scene_spawner: ResMut<SceneSpawner>,
 ) {
     // Insert a resource with the current scene information
     commands.insert_resource(Animations(vec![
@@ -110,8 +115,8 @@ fn spawn_system(
             },
             ..PlayerBundle::default()
         })
-        .with_children(|cell| {
-            cell.spawn_scene(asset_server.load("silva_main_char.glb#Scene0"));
+        .with_children(|parent| {
+            parent.spawn_scene(asset_server.load("silva_main_char.glb#Scene0"));
         });
 
     // Enemies
@@ -208,29 +213,40 @@ fn player_movement_system(
 fn player_animation_system(
     animations: Res<Animations>,
     mut player_query: Query<&mut AnimationPlayer>,
-    mut state_query: Query<&mut PlayerState>,
+    mut state_query: Query<(&mut PlayerState, &mut CrossFadePlayer)>,
 ) {
     let idle_index = 0;
     let run_index = 1;
 
     if let Ok(mut player) = player_query.get_single_mut() {
-        for mut state in state_query.iter_mut() {
+        for (mut state, mut crossfade_player) in state_query.iter_mut() {
+            let current_animation = state.animation.unwrap_or(idle_index);
             match state.state {
                 PlayerStateEnum::IDLE => {
                     if state.animation.is_none() || state.animation.unwrap() != idle_index {
-                        player
-                            .play(animations.0[idle_index].clone_weak())
-                            .set_speed(1.0)
-                            .repeat();
+                        // player
+                        //     .play(animations.0[idle_index].clone_weak())
+                        //     .set_speed(1.0)
+                        //     .repeat();
+                        crossfade_player.crossfade(
+                            animations.0[current_animation].clone_weak(),
+                            animations.0[idle_index].clone_weak(),
+                            0.2,
+                        );
                         state.animation = Some(idle_index);
                     }
                 }
                 PlayerStateEnum::MOVING => {
                     if state.animation.is_none() || state.animation.unwrap() != run_index {
-                        player
-                            .play(animations.0[run_index].clone_weak())
-                            .set_speed(1.3)
-                            .repeat();
+                        // player
+                        //     .play(animations.0[run_index].clone_weak())
+                        //     .set_speed(1.3)
+                        //     .repeat();
+                        crossfade_player.crossfade(
+                            animations.0[idle_index].clone_weak(),
+                            animations.0[run_index].clone_weak(),
+                            0.2,
+                        );
                         state.animation = Some(run_index);
                     }
                 }
@@ -263,25 +279,16 @@ fn main() {
     App::new()
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
+        // .add_plugins_with(DefaultPlugins, |plugins| {
+        //     plugins.disable::<AnimationPlugin>()
+        // })
         .add_plugin(InputPlugin)
+        .add_plugin(AnimationExtensionsPlugin)
+        .add_plugin(WorldInspectorPlugin::new())
         .add_startup_system(spawn_system)
         // .add_startup_system_to_stage(StartupStage::PostStartup, debug_spawn_system)
         .add_system(player_movement_system.after(input_system))
         .add_system(player_animation_system.after(player_movement_system))
         .add_system(camera_follow_player_system)
         .run();
-}
-
-fn debug_spawn_system(query: Query<(Entity, &Name, &Transform, &MovementSpeed, Option<&Player>)>) {
-    for (e, name, transform, speed, player) in query.iter() {
-        println!("---------ENTITY----------");
-        println!("Entity ID: {:?}", e);
-        println!("Name: {}", name.0);
-        println!("position: {:?}", transform);
-        println!("speed: {}", speed.0);
-        if let Some(_player) = player {
-            println!("Entity is a Player!!");
-        }
-        println!("-------------------");
-    }
 }
