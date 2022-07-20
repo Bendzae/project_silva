@@ -30,7 +30,6 @@ impl CrossFadePlayer {
         to: Handle<AnimationClip>,
         transition_time: f32,
     ) -> &mut Self {
-        println!("crossfade");
         *self = Self {
             from: Some(from),
             to: Some(to),
@@ -87,7 +86,6 @@ fn crossfade_player_system(
                 let mut fade_factor = elapsed / crossfade_player.transition_time;
 
                 if fade_factor >= 1.0 {
-
                     fade_factor = 1.0; // set to exactly one so the last step of the interpolation is exact
 
                     let next_animation = crossfade_player.to.as_ref().unwrap().clone_weak();
@@ -145,26 +143,38 @@ fn crossfade_player_system(
                         }
                         // from_curves
                         for curve in from_curves {
+                            // Find the current keyframe
+                            // PERF: finding the current keyframe can be optimised
+                            let stoped_keyframe = match curve
+                                .keyframe_timestamps
+                                .binary_search_by(|probe| probe.partial_cmp(&old_elapsed).unwrap())
+                            {
+                                Ok(i) => i,
+                                Err(0) => continue, // this curve isn't started yet
+                                Err(n) if n > curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished
+                                Err(i) => i - 1,
+                            };
+
                             match &curve.keyframes {
                                 Keyframes::Rotation(keyframes) => {
                                     if let Some(to) = to_rotation {
-                                        transform.rotation = keyframes[0].slerp(to, fade_factor)
+                                        transform.rotation = keyframes[stoped_keyframe].slerp(to, fade_factor)
                                     } else {
-                                        transform.rotation = keyframes[0];
+                                        transform.rotation = keyframes[stoped_keyframe];
                                     }
                                 }
                                 Keyframes::Translation(keyframes) => {
                                     if let Some(to) = to_translation {
-                                        transform.translation = keyframes[0].lerp(to, fade_factor)
+                                        transform.translation = keyframes[stoped_keyframe].lerp(to, fade_factor)
                                     } else {
-                                        transform.translation = keyframes[0];
+                                        transform.translation = keyframes[stoped_keyframe];
                                     }
                                 }
                                 Keyframes::Scale(keyframes) => {
                                     if let Some(to) = to_scale {
-                                        transform.scale = keyframes[0].lerp(to, fade_factor)
+                                        transform.scale = keyframes[stoped_keyframe].lerp(to, fade_factor)
                                     } else {
-                                        transform.scale = keyframes[0];
+                                        transform.scale = keyframes[stoped_keyframe];
                                     }
                                 }
                             }
