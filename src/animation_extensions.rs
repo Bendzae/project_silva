@@ -1,6 +1,6 @@
-use bevy::prelude::*;
-use bevy_inspector_egui::Inspectable;
-use std::ops::Deref;
+use bevy::{ecs::system::Resource, prelude::*};
+// use bevy_inspector_egui::Inspectable;
+use std::{ops::Deref, f32::consts::E};
 
 use crate::PlayerState;
 
@@ -45,37 +45,33 @@ impl CrossFadePlayer {
     }
 }
 
+fn init_crossfade_player_system(
+    animation_players: Query<Entity, With<AnimationPlayer>>,
+    mut commands: Commands,
+    mut did_run: Local<bool>,
+) {
+    if *did_run {
+        return;
+    }
+
+    for e in animation_players.iter() {
+        commands.entity(e).insert(CrossFadePlayer::default());
+        *did_run = true;
+    }
+}
+
 fn crossfade_player_system(
     time: Res<Time>,
     animations: Res<Assets<AnimationClip>>,
-    mut crossfade_players: Query<(&mut CrossFadePlayer, &Children)>,
-    mut animation_players: Query<(Entity, &mut AnimationPlayer)>,
+    mut animation_players: Query<(Entity, &mut AnimationPlayer, &mut CrossFadePlayer)>,
     names: Query<&Name>,
     mut transforms: Query<&mut Transform>,
     children: Query<&Children>,
 ) {
-    for (mut crossfade_player, crossfade_children) in crossfade_players.iter_mut() {
+    for (entity, mut animation_player, mut crossfade_player) in animation_players.iter_mut() {
         if crossfade_player.from.is_none() || crossfade_player.to.is_none() {
             continue;
         }
-
-        // let mut res = None;
-        // for &child in crossfade_children.iter() {
-        //     res = match animation_players.get(child) {
-        //         Ok(_) => Some(child),
-        //         Err(_) => continue,
-        //     };
-        //     break;
-        // }
-
-        // let ani_player_entity = match res {
-        //     Some(r) => r,
-        //     None => panic!("Not AnimationPlayer found!"),
-        // };
-
-        // let mut animation_player = animation_players.get_mut(ani_player_entity).unwrap();
-
-        let (ani_player_entity, mut animation_player) = animation_players.get_single_mut().unwrap();
 
         if let Some(from_clip) = animations.get(crossfade_player.from.as_ref().unwrap()) {
             if let Some(to_clip) = animations.get(crossfade_player.to.as_ref().unwrap()) {
@@ -89,6 +85,7 @@ fn crossfade_player_system(
                     animation_player
                         .play(crossfade_player.to.as_ref().unwrap().clone_weak())
                         .repeat();
+
                     crossfade_player.reset();
                     continue;
                 }
@@ -97,7 +94,7 @@ fn crossfade_player_system(
                     let to_curves = to_clip.curves().get(path);
 
                     // PERF: finding the target entity can be optimised
-                    let mut current_entity = ani_player_entity;
+                    let mut current_entity = entity;
                     // Ignore the first name, it is the root node which we already have
                     for part in path.parts.iter().skip(1) {
                         let mut found = false;
@@ -178,11 +175,12 @@ pub struct AnimationExtensionsPlugin;
 
 impl Plugin for AnimationExtensionsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system_to_stage(
-            CoreStage::PostUpdate,
-            crossfade_player_system
-                .before(bevy::transform::TransformSystem::TransformPropagate)
-                .after(bevy::hierarchy::HierarchySystem::ParentUpdate),
-        );
+        app.add_system(init_crossfade_player_system)
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                crossfade_player_system
+                    .before(bevy::transform::TransformSystem::TransformPropagate)
+                    .after(bevy::animation::animation_player),
+            );
     }
 }

@@ -1,6 +1,6 @@
 use animation_extensions::{AnimationExtensionsPlugin, CrossFadePlayer};
 use bevy::prelude::*;
-use bevy_inspector_egui::{Inspectable, WorldInspectorPlugin};
+// use bevy_inspector_egui::{Inspectable, WorldInspectorPlugin};
 use std::f32::consts::PI;
 
 use crate::input::{input_system, InputCommand, InputEvent, InputPlugin};
@@ -18,13 +18,13 @@ struct Name(String);
 #[derive(Component)]
 struct MovementSpeed(f32);
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Inspectable)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum PlayerStateEnum {
     IDLE,
     MOVING,
 }
 
-#[derive(Component, Inspectable)]
+#[derive(Component)]
 struct PlayerState {
     state: PlayerStateEnum,
     animation: Option<usize>,
@@ -37,8 +37,7 @@ struct PlayerBundle {
     movement_speed: MovementSpeed,
     state: PlayerState,
     #[bundle]
-    transform_bundle: TransformBundle,
-    crossfade_player: CrossFadePlayer,
+    scene_bundle: SceneBundle,
 }
 
 impl Default for PlayerBundle {
@@ -51,8 +50,7 @@ impl Default for PlayerBundle {
                 state: PlayerStateEnum::IDLE,
                 animation: None,
             },
-            transform_bundle: TransformBundle::default(),
-            crossfade_player: CrossFadePlayer::default(),
+            scene_bundle: SceneBundle::default(),
         };
     }
 }
@@ -102,22 +100,22 @@ fn spawn_system(
     });
 
     // Player
-    commands
-        .spawn_bundle(PlayerBundle {
-            name: Name("Player_1".to_string()),
-            transform_bundle: TransformBundle {
-                local: Transform {
-                    translation: Vec3::new(0.0, 0.0, 0.0),
-                    scale: Vec3::new(1.0, 1.0, 1.0),
-                    ..default()
-                },
+    commands.spawn_bundle(PlayerBundle {
+        name: Name("Player_1".to_string()),
+        scene_bundle: SceneBundle {
+            scene: asset_server.load("silva_main_char.glb#Scene0"),
+            transform: Transform {
+                translation: Vec3::new(0.0, 0.0, 0.0),
+                scale: Vec3::new(1.0, 1.0, 1.0),
                 ..default()
             },
-            ..PlayerBundle::default()
-        })
-        .with_children(|parent| {
-            parent.spawn_scene(asset_server.load("silva_main_char.glb#Scene0"));
-        });
+            ..default()
+        },
+        ..PlayerBundle::default()
+    });
+    // .with_children(|parent| {
+    //     parent.spawn_scene(asset_server.load("silva_main_char.glb#Scene0"));
+    // });
 
     // Enemies
     for i in 0..3 {
@@ -160,7 +158,7 @@ fn spawn_system(
     });
 
     // camera
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(-5.0, 10.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
@@ -212,14 +210,14 @@ fn player_movement_system(
 
 fn player_animation_system(
     animations: Res<Animations>,
-    mut player_query: Query<&mut AnimationPlayer>,
-    mut state_query: Query<(&mut PlayerState, &mut CrossFadePlayer)>,
+    mut player_query: Query<(&Parent, &mut AnimationPlayer, &mut CrossFadePlayer)>,
+    mut state_query: Query<&mut PlayerState>,
 ) {
     let idle_index = 0;
     let run_index = 1;
 
-    if let Ok(mut player) = player_query.get_single_mut() {
-        for (mut state, mut crossfade_player) in state_query.iter_mut() {
+    for (parent, mut player, mut crossfade_player) in player_query.iter_mut() {
+        if let Ok(mut state) = state_query.get_single_mut() {
             let current_animation = state.animation.unwrap_or(idle_index);
             match state.state {
                 PlayerStateEnum::IDLE => {
@@ -284,7 +282,7 @@ fn main() {
         // })
         .add_plugin(InputPlugin)
         .add_plugin(AnimationExtensionsPlugin)
-        .add_plugin(WorldInspectorPlugin::new())
+        // .add_plugin(WorldInspectorPlugin::new())
         .add_startup_system(spawn_system)
         // .add_startup_system_to_stage(StartupStage::PostStartup, debug_spawn_system)
         .add_system(player_movement_system.after(input_system))
