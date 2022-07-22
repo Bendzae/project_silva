@@ -1,12 +1,10 @@
-use animation_extensions::{AnimationExtensionsPlugin, CrossFadePlayer};
 use bevy::prelude::*;
+use bevy::utils::Duration;
 // use bevy_inspector_egui::{Inspectable, WorldInspectorPlugin};
 use std::f32::consts::PI;
 
 use crate::input::{input_system, InputCommand, InputEvent, InputPlugin};
 
-// mod custom_animation;
-mod animation_extensions;
 mod input;
 
 #[derive(Component)]
@@ -151,7 +149,7 @@ fn spawn_system(
         transform: Transform::from_xyz(0.0, 8.0, 0.0).with_rotation(Quat::from_euler(
             EulerRot::XYZ,
             -(PI / 4.0),
-            (PI / 8.0),
+            PI / 8.0,
             0.0,
         )),
         ..default()
@@ -170,7 +168,7 @@ fn player_movement_system(
     time: Res<Time>,
     mut target_rot: Local<Quat>,
 ) {
-    let turn_speed: f32 = 20.0;
+    let turn_speed: f32 = 15.0;
     for (mut transform, speed, mut state) in query.iter_mut() {
         let mut direction = Vec3::default();
         for event in input_event.iter() {
@@ -210,41 +208,39 @@ fn player_movement_system(
 
 fn player_animation_system(
     animations: Res<Animations>,
-    mut player_query: Query<(&Parent, &mut AnimationPlayer, &mut CrossFadePlayer)>,
+    mut player_query: Query<(&Parent, &mut AnimationPlayer)>,
     mut state_query: Query<&mut PlayerState>,
 ) {
     let idle_index = 0;
     let run_index = 1;
 
-    for (parent, mut player, mut crossfade_player) in player_query.iter_mut() {
+    for (parent, mut player) in player_query.iter_mut() {
         if let Ok(mut state) = state_query.get_single_mut() {
-            let current_animation = state.animation.unwrap_or(idle_index);
             match state.state {
                 PlayerStateEnum::IDLE => {
                     if state.animation.is_none() || state.animation.unwrap() != idle_index {
-                        // player
-                        //     .play(animations.0[idle_index].clone_weak())
-                        //     .set_speed(1.0)
-                        //     .repeat();
-                        crossfade_player.crossfade(
-                            animations.0[current_animation].clone_weak(),
-                            animations.0[idle_index].clone_weak(),
-                            0.2,
-                        );
+                        if state.animation.is_none() {
+                            player.play(animations.0[idle_index].clone_weak()).repeat();
+                        } else {
+                            player
+                                .cross_fade(
+                                    animations.0[idle_index].clone_weak(),
+                                    Duration::from_secs_f32(0.3),
+                                )
+                                .repeat();
+                        }
                         state.animation = Some(idle_index);
                     }
                 }
                 PlayerStateEnum::MOVING => {
                     if state.animation.is_none() || state.animation.unwrap() != run_index {
-                        // player
-                        //     .play(animations.0[run_index].clone_weak())
-                        //     .set_speed(1.3)
-                        //     .repeat();
-                        crossfade_player.crossfade(
-                            animations.0[idle_index].clone_weak(),
-                            animations.0[run_index].clone_weak(),
-                            0.2,
-                        );
+                        player
+                            .cross_fade(
+                                animations.0[run_index].clone_weak(),
+                                Duration::from_secs_f32(0.25),
+                            )
+                            .set_speed(1.3)
+                            .repeat();
                         state.animation = Some(run_index);
                     }
                 }
@@ -281,7 +277,6 @@ fn main() {
         //     plugins.disable::<AnimationPlugin>()
         // })
         .add_plugin(InputPlugin)
-        .add_plugin(AnimationExtensionsPlugin)
         // .add_plugin(WorldInspectorPlugin::new())
         .add_startup_system(spawn_system)
         // .add_startup_system_to_stage(StartupStage::PostStartup, debug_spawn_system)

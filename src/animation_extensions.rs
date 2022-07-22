@@ -1,8 +1,6 @@
-use bevy::{ecs::system::Resource, prelude::*};
+use bevy::prelude::*;
 // use bevy_inspector_egui::Inspectable;
-use std::{f32::consts::E, ops::Deref};
-
-use crate::PlayerState;
+use std::ops::Deref;
 
 #[derive(Component)]
 pub struct CrossFadePlayer {
@@ -158,21 +156,24 @@ fn crossfade_player_system(
                             match &curve.keyframes {
                                 Keyframes::Rotation(keyframes) => {
                                     if let Some(to) = to_rotation {
-                                        transform.rotation = keyframes[stoped_keyframe].slerp(to, fade_factor)
+                                        transform.rotation =
+                                            keyframes[stoped_keyframe].slerp(to, fade_factor)
                                     } else {
                                         transform.rotation = keyframes[stoped_keyframe];
                                     }
                                 }
                                 Keyframes::Translation(keyframes) => {
                                     if let Some(to) = to_translation {
-                                        transform.translation = keyframes[stoped_keyframe].lerp(to, fade_factor)
+                                        transform.translation =
+                                            keyframes[stoped_keyframe].lerp(to, fade_factor)
                                     } else {
                                         transform.translation = keyframes[stoped_keyframe];
                                     }
                                 }
                                 Keyframes::Scale(keyframes) => {
                                     if let Some(to) = to_scale {
-                                        transform.scale = keyframes[stoped_keyframe].lerp(to, fade_factor)
+                                        transform.scale =
+                                            keyframes[stoped_keyframe].lerp(to, fade_factor)
                                     } else {
                                         transform.scale = keyframes[stoped_keyframe];
                                     }
