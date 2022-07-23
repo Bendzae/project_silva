@@ -49,9 +49,15 @@ fn my_cursor_system(
 
     // get the window that the camera is displaying to (or the primary window)
     let wnd = if let RenderTarget::Window(id) = camera.target {
-        wnds.get(id).unwrap()
+        match wnds.get(id) {
+            Some(wnd) => wnd,
+            None => return,
+        }
     } else {
-        wnds.get_primary().unwrap()
+        match wnds.get_primary() {
+            Some(wnd) => wnd,
+            None => return,
+        }
     };
 
     // check if the cursor is inside the window and get its position
