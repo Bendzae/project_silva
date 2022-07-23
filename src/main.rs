@@ -1,5 +1,6 @@
-use bevy::prelude::*;
 use bevy::utils::Duration;
+use bevy::{input::mouse::MouseButtonInput, prelude::*};
+use input::MouseFloorPosition;
 // use bevy_inspector_egui::{Inspectable, WorldInspectorPlugin};
 use std::f32::consts::PI;
 
@@ -28,12 +29,26 @@ struct PlayerState {
     animation: Option<usize>,
 }
 
+#[derive(Component)]
+struct MovementTarget {
+    current_target: Option<Vec3>,
+}
+
+impl Default for MovementTarget {
+    fn default() -> Self {
+        return Self {
+            current_target: Some(Vec3::ZERO),
+        };
+    }
+}
+
 #[derive(Bundle)]
 struct PlayerBundle {
     _p: Player,
     name: Name,
     movement_speed: MovementSpeed,
     state: PlayerState,
+    movement_target: MovementTarget,
     #[bundle]
     scene_bundle: SceneBundle,
 }
@@ -48,6 +63,7 @@ impl Default for PlayerBundle {
                 state: PlayerStateEnum::IDLE,
                 animation: None,
             },
+            movement_target: MovementTarget::default(),
             scene_bundle: SceneBundle::default(),
         };
     }
@@ -75,6 +91,25 @@ impl Default for EnemyBundle {
     }
 }
 
+#[derive(Component)]
+struct TestDebugComponent;
+
+#[derive(Bundle)]
+pub struct TestBundle {
+    _t: TestDebugComponent,
+    #[bundle]
+    pbr_bundle: PbrBundle,
+}
+
+impl Default for TestBundle {
+    fn default() -> TestBundle {
+        return TestBundle {
+            _t: TestDebugComponent,
+            pbr_bundle: PbrBundle::default(),
+        };
+    }
+}
+
 struct Animations(Vec<Handle<AnimationClip>>);
 
 fn spawn_system(
@@ -95,6 +130,16 @@ fn spawn_system(
         mesh: meshes.add(Mesh::from(shape::Plane { size: 10.0 })),
         material: materials.add(Color::rgb(1.0, 1.0, 1.0).into()),
         ..default()
+    });
+
+    // Box
+    commands.spawn_bundle(TestBundle {
+        pbr_bundle: PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Cube { size: 0.2 })),
+            material: materials.add(Color::rgb(0.2, 0.0, 0.0).into()),
+            ..default()
+        },
+        ..Default::default()
     });
 
     // Player
@@ -164,12 +209,22 @@ fn spawn_system(
 
 fn player_movement_system(
     mut input_event: EventReader<InputEvent>,
-    mut query: Query<(&mut Transform, &MovementSpeed, &mut PlayerState), With<Player>>,
+    mut mouse_event: EventReader<MouseFloorPosition>,
+    mut mouse_button_event: Res<Input<MouseButton>>,
+    mut query: Query<
+        (
+            &mut Transform,
+            &MovementSpeed,
+            &mut PlayerState,
+            &mut MovementTarget,
+        ),
+        With<Player>,
+    >,
     time: Res<Time>,
     mut target_rot: Local<Quat>,
 ) {
     let turn_speed: f32 = 15.0;
-    for (mut transform, speed, mut state) in query.iter_mut() {
+    for (mut transform, speed, mut state, mut target) in query.iter_mut() {
         let mut direction = Vec3::default();
         for event in input_event.iter() {
             match event.0 {
@@ -177,10 +232,23 @@ fn player_movement_system(
                 InputCommand::LEFT => direction.x -= 1.0,
                 InputCommand::UP => direction.z -= 1.0,
                 InputCommand::DOWN => direction.z += 1.0,
-                InputCommand::ACTION => todo!(),
+                InputCommand::ACTION => (),
             }
         }
         if direction.length() > 0.0 {
+            target.current_target = None;
+        }
+
+        if mouse_button_event.pressed(MouseButton::Right) {
+            for event in mouse_event.iter() {
+                target.current_target = Some(event.0);
+            }
+        }
+        if let Some(current_target) = target.current_target {
+            direction = current_target - transform.translation;
+        }
+
+        if direction.length() > time.delta_seconds() * speed.0 {
             let normalized_dir = direction.normalize();
             transform.translation += normalized_dir * speed.0 * time.delta_seconds();
 
@@ -193,6 +261,9 @@ fn player_movement_system(
             });
             state.state = PlayerStateEnum::MOVING;
         } else {
+            if let Some(current_target) = target.current_target {
+                transform.translation = current_target;
+            }
             state.state = PlayerStateEnum::IDLE;
         }
 
