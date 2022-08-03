@@ -8,11 +8,10 @@ edition = "2021"
 [dependencies]
 #bevy = { version = "0.7.0", features = ["dynamic"] }
 # bevy = { git = "https://github.com/bevyengine/bevy" }
-bevy = { git = "https://github.com/Bendzae/bevy-fork.git", branch = "animation-blending" }
-# bevy_mod_picking = { git = "https://github.com/aevyrie/bevy_mod_picking.git" }
+bevy = { git = "https://github.com/Bendzae/bevy-fork.git", branch = "local-0-8-release" }
 # bevy-inspector-egui = "0.11.0"
 # bevy-inspector-egui = { git = "https://github.com/jakobhellermann/bevy-inspector-egui.git", branch = "bevy-main" }
-# bevy-inspector-egui = { git = "https://github.com/jakobhellermann/bevy-inspector-egui.git" }
+bevy-inspector-egui = { git = "https://github.com/Sheepyhead/bevy-inspector-egui.git", branch = "bevy-0.8" }
 
 # Enable a small amount of optimization in debug mode
 [profile.dev]

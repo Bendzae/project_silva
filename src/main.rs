@@ -1,15 +1,22 @@
+use bevy::prelude::*;
 use bevy::utils::Duration;
-use bevy::{input::mouse::MouseButtonInput, prelude::*};
+use camera::camera_follow_player_system;
+// use bevy_inspector_egui::prelude::*;
 use input::MouseFloorPosition;
-// use bevy_inspector_egui::{Inspectable, WorldInspectorPlugin};
 use std::f32::consts::PI;
+use texture_tiling::TextureTilingPlugin;
 
-use crate::input::{input_system, InputCommand, InputEvent, InputPlugin};
+use crate::{
+    input::{input_system, InputCommand, InputEvent, InputPlugin},
+    texture_tiling::{TextureTiling, TileableTextures},
+};
 
+mod camera;
 mod input;
+mod texture_tiling;
 
 #[derive(Component)]
-struct Player;
+pub struct Player;
 
 #[derive(Component)]
 struct Name(String);
@@ -125,12 +132,22 @@ fn spawn_system(
         asset_server.load("silva_main_char.glb#Animation1"),
     ]));
 
+    let floor_texture_handle = asset_server.load("test_texture.png");
+
+    commands.insert_resource(TileableTextures(vec![floor_texture_handle.clone()]));
+
     // Floor
-    commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 10.0 })),
-        material: materials.add(Color::rgb(1.0, 1.0, 1.0).into()),
-        ..default()
-    });
+    commands
+        .spawn_bundle(PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Plane { size: 20.0 })),
+            material: materials.add(StandardMaterial {
+                base_color: Color::rgb(1.0, 1.0, 1.0).into(),
+                base_color_texture: Some(floor_texture_handle.clone()),
+                ..default()
+            }),
+            ..default()
+        })
+        .insert(TextureTiling { x: 2.0, y: 2.0 });
 
     // Box
     commands.spawn_bundle(TestBundle {
@@ -320,26 +337,6 @@ fn player_animation_system(
     }
 }
 
-fn camera_follow_player_system(
-    mut camera_query: Query<&mut Transform, With<Camera>>,
-    player_query: Query<&Transform, (With<Player>, Without<Camera>)>,
-    mut inital_position: Local<Option<Vec3>>,
-    time: Res<Time>,
-) {
-    if let Ok(mut camera_transform) = camera_query.get_single_mut() {
-        if inital_position.is_none() {
-            *inital_position = Some(camera_transform.translation);
-        }
-        if let Ok(player_transform) = player_query.get_single() {
-            let pt = player_transform.translation;
-            let target_pos = (*inital_position).unwrap() + Vec3::new(pt.x, 0.0, pt.z);
-            camera_transform.translation = camera_transform
-                .translation
-                .lerp(target_pos, 7.0 * time.delta_seconds())
-        }
-    }
-}
-
 fn main() {
     App::new()
         .insert_resource(Msaa { samples: 4 })
@@ -347,8 +344,9 @@ fn main() {
         // .add_plugins_with(DefaultPlugins, |plugins| {
         //     plugins.disable::<AnimationPlugin>()
         // })
-        .add_plugin(InputPlugin)
         // .add_plugin(WorldInspectorPlugin::new())
+        .add_plugin(InputPlugin)
+        .add_plugin(TextureTilingPlugin)
         .add_startup_system(spawn_system)
         // .add_startup_system_to_stage(StartupStage::PostStartup, debug_spawn_system)
         .add_system(player_movement_system.after(input_system))
