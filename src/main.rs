@@ -1,77 +1,38 @@
+use animation::player_animation_system;
 use bevy::prelude::*;
-use bevy::utils::Duration;
 use camera::camera_follow_player_system;
 // use bevy_inspector_egui::prelude::*;
 use input::MouseFloorPosition;
+use player::{PlayerState, Player, PlayerStateEnum};
 use std::f32::consts::PI;
 use texture_tiling::TextureTilingPlugin;
 
 use crate::{
     input::{input_system, InputCommand, InputEvent, InputPlugin},
-    texture_tiling::{TextureTiling, TileableTextures},
+    texture_tiling::{TextureTiling, TileableTextures}, animation::Animations, player::PlayerBundle,
 };
 
 mod camera;
 mod input;
+mod animation;
 mod texture_tiling;
+mod player;
 
 #[derive(Component)]
-pub struct Player;
+pub struct Name(pub String);
 
 #[derive(Component)]
-struct Name(String);
+pub struct MovementSpeed(pub f32);
 
 #[derive(Component)]
-struct MovementSpeed(f32);
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
-pub enum PlayerStateEnum {
-    IDLE,
-    MOVING,
-}
-
-#[derive(Component)]
-struct PlayerState {
-    state: PlayerStateEnum,
-    animation: Option<usize>,
-}
-
-#[derive(Component)]
-struct MovementTarget {
-    current_target: Option<Vec3>,
+pub struct MovementTarget {
+    pub current_target: Option<Vec3>,
 }
 
 impl Default for MovementTarget {
     fn default() -> Self {
         return Self {
             current_target: Some(Vec3::ZERO),
-        };
-    }
-}
-
-#[derive(Bundle)]
-struct PlayerBundle {
-    _p: Player,
-    name: Name,
-    movement_speed: MovementSpeed,
-    state: PlayerState,
-    movement_target: MovementTarget,
-    #[bundle]
-    scene_bundle: SceneBundle,
-}
-
-impl Default for PlayerBundle {
-    fn default() -> PlayerBundle {
-        return PlayerBundle {
-            _p: Player,
-            name: Name("unknown".to_string()),
-            movement_speed: MovementSpeed(3.0),
-            state: PlayerState {
-                state: PlayerStateEnum::IDLE,
-                animation: None,
-            },
-            movement_target: MovementTarget::default(),
-            scene_bundle: SceneBundle::default(),
         };
     }
 }
@@ -116,8 +77,6 @@ impl Default for TestBundle {
         };
     }
 }
-
-struct Animations(Vec<Handle<AnimationClip>>);
 
 fn spawn_system(
     mut commands: Commands,
@@ -173,9 +132,6 @@ fn spawn_system(
         },
         ..PlayerBundle::default()
     });
-    // .with_children(|parent| {
-    //     parent.spawn_scene(asset_server.load("silva_main_char.glb#Scene0"));
-    // });
 
     // Enemies
     for i in 0..3 {
@@ -290,49 +246,6 @@ fn player_movement_system(
             transform.rotation = transform
                 .rotation
                 .slerp(*target_rot, 1.0_f32.min(t * time.delta_seconds()));
-        }
-    }
-}
-
-fn player_animation_system(
-    animations: Res<Animations>,
-    mut player_query: Query<(&Parent, &mut AnimationPlayer)>,
-    mut state_query: Query<&mut PlayerState>,
-) {
-    let idle_index = 0;
-    let run_index = 1;
-
-    for (parent, mut player) in player_query.iter_mut() {
-        if let Ok(mut state) = state_query.get_single_mut() {
-            match state.state {
-                PlayerStateEnum::IDLE => {
-                    if state.animation.is_none() || state.animation.unwrap() != idle_index {
-                        if state.animation.is_none() {
-                            player.play(animations.0[idle_index].clone_weak()).repeat();
-                        } else {
-                            player
-                                .cross_fade(
-                                    animations.0[idle_index].clone_weak(),
-                                    Duration::from_secs_f32(0.3),
-                                )
-                                .repeat();
-                        }
-                        state.animation = Some(idle_index);
-                    }
-                }
-                PlayerStateEnum::MOVING => {
-                    if state.animation.is_none() || state.animation.unwrap() != run_index {
-                        player
-                            .cross_fade(
-                                animations.0[run_index].clone_weak(),
-                                Duration::from_secs_f32(0.25),
-                            )
-                            .set_speed(1.3)
-                            .repeat();
-                        state.animation = Some(run_index);
-                    }
-                }
-            };
         }
     }
 }
