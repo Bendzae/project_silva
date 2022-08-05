@@ -3,7 +3,7 @@ use bevy::input::InputSystem;
 use bevy::prelude::*;
 use bevy::render::camera::RenderTarget;
 
-use crate::TestDebugComponent;
+use crate::debug::TestDebugComponent;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum InputCommand {

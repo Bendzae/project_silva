@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{MovementSpeed, MovementTarget};
+use crate::movement::{MovementSpeed, MovementTarget};
 
 #[derive(Component)]
 pub struct Player;
@@ -20,7 +20,7 @@ pub struct PlayerState {
 #[derive(Bundle)]
 pub struct PlayerBundle {
     pub _p: Player,
-    pub name: crate::Name,
+    pub name: crate::NameV2,
     pub movement_speed: MovementSpeed,
     pub state: PlayerState,
     pub movement_target: MovementTarget,
@@ -32,7 +32,7 @@ impl Default for PlayerBundle {
     fn default() -> PlayerBundle {
         return PlayerBundle {
             _p: Player,
-            name: crate::Name("unknown".to_string()),
+            name: crate::NameV2("unknown".to_string()),
             movement_speed: MovementSpeed(3.0),
             state: PlayerState {
                 state: PlayerStateEnum::IDLE,
