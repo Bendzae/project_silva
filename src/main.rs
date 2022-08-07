@@ -1,5 +1,6 @@
 use animation::player_animation_system;
 use bevy::prelude::*;
+use bevy::render::texture::ImageSettings;
 use bevy::scene::SceneInstance;
 use bevy_inspector_egui::prelude::*;
 use camera::camera_follow_player_system;
@@ -65,8 +66,13 @@ fn spawn_system(
     ]));
 
     let floor_texture_handle = asset_server.load("test_textures/Dark/texture_06.png");
+    // let ao_test = asset_server.load("ao_test.png");
+    let normal_map_test = asset_server.load("normal_test.png");
 
-    commands.insert_resource(TileableTextures(vec![floor_texture_handle.clone()]));
+    commands.insert_resource(TileableTextures(vec![
+        floor_texture_handle.clone(),
+        normal_map_test.clone(),
+    ]));
 
     // Floor
     commands
@@ -83,20 +89,27 @@ fn spawn_system(
 
     (0..2).for_each(|x| {
         (0..2).for_each(|z| {
-            commands.spawn_bundle(MaterialMeshBundle {
-                mesh: meshes.add(Mesh::from(shape::Cube { size: 2.0 })),
-                transform: Transform::from_xyz(
-                    (x * 10 - 5) as f32,
-                    1.0 - ((x + z) as f32 / 2.0),
-                    (z * 10 - 5) as f32,
-                ),
-                material: materials.add(StandardMaterial {
-                    base_color: Color::rgb(1.0, 1.0, 1.0).into(),
-                    // base_color_texture: Some(floor_texture_handle.clone()),
+            commands
+                .spawn_bundle(MaterialMeshBundle {
+                    mesh: meshes.add(Mesh::from(shape::Cube { size: 2.0 })),
+                    transform: Transform::from_xyz(
+                        (x * 10 - 5) as f32,
+                        1.0 - ((x + z) as f32 / 2.0),
+                        (z * 10 - 5) as f32,
+                    ),
+                    material: materials.add(StandardMaterial {
+                        base_color: Color::rgb(1.0, 1.0, 1.0).into(),
+                        // base_color_texture: Some(normal_map_test.clone()),
+                        // occlusion_texture: Some(ao_test.clone()),
+                        normal_map_texture: Some(normal_map_test.clone()),
+                        perceptual_roughness: 1.0,
+                        metallic: 0.1,
+                        // base_color_texture: Some(floor_texture_handle.clone()),
+                        ..default()
+                    }),
                     ..default()
-                }),
-                ..default()
-            });
+                })
+                .insert(TextureTiling { x: 1.0, y: 1.0 });
         });
     });
 
@@ -111,19 +124,31 @@ fn spawn_system(
     });
 
     // Player
-    commands.spawn_bundle(PlayerBundle {
-        name: NameV2("Player_1".to_string()),
-        scene_bundle: SceneBundle {
-            scene: asset_server.load("silva_main_char.glb#Scene0"),
-            transform: Transform {
-                translation: Vec3::new(0.0, 0.0, 0.0),
-                scale: Vec3::new(1.0, 1.0, 1.0),
+    commands
+        .spawn_bundle(PlayerBundle {
+            name: NameV2("Player_1".to_string()),
+            scene_bundle: SceneBundle {
+                scene: asset_server.load("silva_main_char.glb#Scene0"),
+                transform: Transform {
+                    translation: Vec3::new(0.0, 0.0, 0.0),
+                    scale: Vec3::new(1.0, 1.0, 1.0),
+                    ..default()
+                },
                 ..default()
             },
-            ..default()
-        },
-        ..PlayerBundle::default()
-    });
+            ..PlayerBundle::default()
+        })
+        .with_children(|parent| {
+            parent.spawn_bundle(PointLightBundle {
+                transform: Transform::from_xyz(0., 0.6, 0.),
+                point_light: PointLight {
+                    color: Color::rgb(0., 0.8, 1.0),
+                    intensity: 200.0,
+                    ..default()
+                },
+                ..default()
+            });
+        });
 
     // Enemies
     for i in 0..3 {
@@ -137,6 +162,12 @@ fn spawn_system(
     commands.insert_resource(AmbientLight {
         color: Color::WHITE,
         brightness: 0.4,
+    });
+
+    // point light
+    commands.spawn_bundle(PointLightBundle {
+        transform: Transform::from_xyz(-10., 3., 0.),
+        ..default()
     });
 
     // directional light
@@ -183,24 +214,23 @@ fn set_material_system(
         return;
     }
     for (e, handle, name) in query.iter() {
-        println!("{:?}",name);
+        println!("{:?}", name);
         if let Some(mesh) = meshes.get_mut(handle) {
-            
             let material_brows = materials.add(StandardMaterial {
                 base_color: Color::rgb(0.0, 0.0, 0.0).into(),
                 ..default()
             });
-             let material_body = materials.add(StandardMaterial {
+            let material_body = materials.add(StandardMaterial {
                 base_color: Color::rgb(1.0, 1.0, 1.0).into(),
                 // perceptual_roughness: 1.0,
                 ..default()
             });
-             let material_eyes = materials.add(StandardMaterial {
+            let material_eyes = materials.add(StandardMaterial {
                 base_color: Color::rgb(0.1, 0.8, 1.0).into(),
                 emissive: Color::rgb(0.0, 0.8, 1.0).into(),
                 ..default()
             });
-            
+
             commands.entity(e).remove::<Handle<StandardMaterial>>();
 
             match mesh.indices().unwrap().len() {
@@ -214,10 +244,19 @@ fn set_material_system(
     }
 }
 
+fn prepate_meshes(handles: Query<&Handle<Mesh>>, mut meshes: ResMut<Assets<Mesh>>) {
+    for handle in handles.iter() {
+        if let Some(mesh) = meshes.get_mut(handle) {
+            mesh.generate_tangents().unwrap();
+        }
+    }
+}
+
 fn main() {
     App::new()
         .insert_resource(Msaa { samples: 4 })
         .insert_resource(ClearColor(Color::BLACK))
+        .insert_resource(ImageSettings::default_linear())
         .add_plugins(DefaultPlugins)
         // .add_plugins_with(DefaultPlugins, |plugins| {
         //     plugins.disable::<AnimationPlugin>()
@@ -226,7 +265,7 @@ fn main() {
         .add_plugin(InputPlugin)
         .add_plugin(TextureTilingPlugin)
         .add_startup_system(spawn_system)
-        // .add_startup_system_to_stage(StartupStage::PostStartup, debug_spawn_system)
+        .add_startup_system_to_stage(StartupStage::PostStartup, prepate_meshes)
         .add_system(player_movement_system.after(input_system))
         .add_system(player_animation_system.after(player_movement_system))
         .add_system(camera_follow_player_system)

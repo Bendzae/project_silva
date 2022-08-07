@@ -2,7 +2,7 @@ use bevy::{
     prelude::*,
     render::{
         mesh::VertexAttributeValues,
-        render_resource::{AddressMode, SamplerDescriptor},
+        render_resource::{AddressMode, SamplerDescriptor, FilterMode},
         texture::ImageSampler,
     },
 };
@@ -45,6 +45,9 @@ fn image_config_system(
         let image = images.get_mut(&texture.clone());
         if let Some(image) = image {
             image.sampler_descriptor = ImageSampler::Descriptor(SamplerDescriptor {
+                mag_filter: FilterMode::Linear,
+                min_filter: FilterMode::Linear,
+                mipmap_filter: FilterMode::Linear,
                 address_mode_u: AddressMode::Repeat,
                 address_mode_v: AddressMode::Repeat,
                 ..Default::default()
