@@ -2,7 +2,7 @@ use bevy::{math::vec3, prelude::*};
 
 use crate::{input::ZoomEvent, Player};
 
-const ZOOM_FACTOR: f32 = 20.0;
+const ZOOM_FACTOR: f32 = 10.0;
 
 pub fn camera_follow_player_system(
     mut camera_query: Query<&mut Transform, With<Camera>>,
@@ -19,7 +19,8 @@ pub fn camera_follow_player_system(
         }
 
         for e in zoom_events.iter() {
-            *current_zoom += e.0 * time.delta_seconds() * ZOOM_FACTOR;
+            let tmp = *current_zoom;
+            *current_zoom = (tmp + e.0 * time.delta_seconds() * ZOOM_FACTOR).clamp(-30.0, 10.0);
         }
 
         if let Ok(player_transform) = player_query.get_single() {
