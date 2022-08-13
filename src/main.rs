@@ -2,8 +2,9 @@ use animation::player_animation_system;
 use bevy::prelude::*;
 use bevy::render::texture::ImageSettings;
 use bevy::scene::SceneInstance;
+use bevy::window::WindowSettings;
 use bevy_inspector_egui::prelude::*;
-use camera::camera_follow_player_system;
+use camera::{camera_follow_player_system};
 use movement::{player_movement_system, MovementSpeed};
 use player::Player;
 use std::f32::consts::PI;
@@ -270,5 +271,6 @@ fn main() {
         .add_system(player_animation_system.after(player_movement_system))
         .add_system(camera_follow_player_system)
         .add_system(set_material_system)
+        .add_system(bevy::window::close_on_esc)
         .run();
 }

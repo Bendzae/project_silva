@@ -1,4 +1,4 @@
-use bevy::input::mouse::MouseMotion;
+use bevy::input::mouse::{MouseButtonInput, MouseMotion, MouseWheel};
 use bevy::input::InputSystem;
 use bevy::prelude::*;
 use bevy::render::camera::RenderTarget;
@@ -29,6 +29,19 @@ pub fn input_system(input: Res<Input<KeyCode>>, mut event: EventWriter<InputEven
     }
     if input.pressed(KeyCode::Down) {
         event.send(InputEvent(InputCommand::DOWN));
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct ZoomEvent(pub f32);
+
+pub fn scroll_system(mut scroll_events: EventReader<MouseWheel>, mut zoom_event: EventWriter<ZoomEvent>) {
+    let mut zoom_value = 0.0;
+    for e in scroll_events.iter() {
+        zoom_value += e.y;
+    }
+    if zoom_value != 0.0 {
+        zoom_event.send(ZoomEvent(zoom_value));
     }
 }
 
@@ -107,8 +120,10 @@ impl Plugin for InputPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<InputEvent>()
             .add_event::<MouseFloorPosition>()
+            .add_event::<ZoomEvent>()
             .add_system(input_system.after(InputSystem))
-            .add_system(my_cursor_system);
+            .add_system(my_cursor_system)
+            .add_system(scroll_system);
         // .add_system(debug_input_system.after(input_system));
     }
 
