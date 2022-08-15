@@ -1,10 +1,12 @@
 use animation::player_animation_system;
 use bevy::prelude::*;
+use bevy::reflect::TypeUuid;
+use bevy::render::render_resource::{AsBindGroup, ShaderRef};
 use bevy::render::texture::ImageSettings;
 use bevy::scene::SceneInstance;
 use bevy::window::WindowSettings;
 use bevy_inspector_egui::prelude::*;
-use camera::{camera_follow_player_system};
+use camera::camera_follow_player_system;
 use movement::{player_movement_system, MovementSpeed};
 use player::Player;
 use std::f32::consts::PI;
@@ -57,6 +59,7 @@ fn spawn_system(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut custom_materials: ResMut<Assets<NormalVisualizerMaterial>>,
     asset_server: Res<AssetServer>,
     mut scene_spawner: ResMut<SceneSpawner>,
 ) {
@@ -112,6 +115,30 @@ fn spawn_system(
                 })
                 .insert(TextureTiling { x: 1.0, y: 1.0 });
         });
+    });
+
+    commands.spawn_bundle(MaterialMeshBundle {
+        mesh: meshes.add(Mesh::from(shape::Icosphere {
+            radius: 1.0,
+            ..default()
+        })),
+        material: custom_materials.add(NormalVisualizerMaterial {
+            selection: Vec4::new(1.0, 0.0, 0.0, 0.0),
+        }),
+        transform: Transform::from_xyz(2.0, 0.5, 2.0),
+        ..default()
+    });
+
+    commands.spawn_bundle(MaterialMeshBundle {
+        mesh: meshes.add(Mesh::from(shape::Icosphere {
+            radius: 0.5,
+            ..default()
+        })),
+        material: custom_materials.add(NormalVisualizerMaterial {
+            selection: Vec4::new(1.0, 0.0, 0.0, 0.0),
+        }),
+        transform: Transform::from_xyz(2.0, 0.25, -2.0),
+        ..default()
     });
 
     // Box
@@ -208,6 +235,7 @@ fn set_material_system(
     query: Query<(Entity, &Handle<Mesh>, &Name)>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut custom_materials: ResMut<Assets<NormalVisualizerMaterial>>,
     mut commands: Commands,
     mut ran: Local<bool>,
 ) {
@@ -226,6 +254,9 @@ fn set_material_system(
                 // perceptual_roughness: 1.0,
                 ..default()
             });
+            // let material_eyes = custom_materials.add(NormalVisualizerMaterial {
+            //     selection: Vec4::new(1.0, 0.0, 0.0, 0.0),
+            // });
             let material_eyes = materials.add(StandardMaterial {
                 base_color: Color::rgb(0.1, 0.8, 1.0).into(),
                 emissive: Color::rgb(0.0, 0.8, 1.0).into(),
@@ -245,12 +276,26 @@ fn set_material_system(
     }
 }
 
-fn prepate_meshes(handles: Query<&Handle<Mesh>>, mut meshes: ResMut<Assets<Mesh>>) {
+fn prepare_meshes(handles: Query<&Handle<Mesh>>, mut meshes: ResMut<Assets<Mesh>>) {
     for handle in handles.iter() {
         if let Some(mesh) = meshes.get_mut(handle) {
             mesh.generate_tangents().unwrap();
         }
     }
+}
+
+impl Material for NormalVisualizerMaterial {
+    fn fragment_shader() -> ShaderRef {
+        "shaders/normal_visualizer.wgsl".into()
+    }
+}
+
+// This is the struct that will be passed to your shader
+#[derive(AsBindGroup, TypeUuid, Debug, Clone)]
+#[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e0"]
+pub struct NormalVisualizerMaterial {
+    #[uniform(0)]
+    selection: Vec4,
 }
 
 fn main() {
@@ -262,11 +307,12 @@ fn main() {
         // .add_plugins_with(DefaultPlugins, |plugins| {
         //     plugins.disable::<AnimationPlugin>()
         // })
+        .add_plugin(MaterialPlugin::<NormalVisualizerMaterial>::default())
         .add_plugin(WorldInspectorPlugin::new())
         .add_plugin(InputPlugin)
         .add_plugin(TextureTilingPlugin)
         .add_startup_system(spawn_system)
-        .add_startup_system_to_stage(StartupStage::PostStartup, prepate_meshes)
+        .add_startup_system_to_stage(StartupStage::PostStartup, prepare_meshes)
         .add_system(player_movement_system.after(input_system))
         .add_system(player_animation_system.after(player_movement_system))
         .add_system(camera_follow_player_system)

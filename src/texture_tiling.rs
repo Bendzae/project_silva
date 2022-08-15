@@ -2,7 +2,7 @@ use bevy::{
     prelude::*,
     render::{
         mesh::VertexAttributeValues,
-        render_resource::{AddressMode, SamplerDescriptor, FilterMode},
+        render_resource::{AddressMode, FilterMode, SamplerDescriptor},
         texture::ImageSampler,
     },
 };
@@ -18,7 +18,11 @@ pub struct TextureTiling {
 fn tiling_system(
     mut query: Query<(&TextureTiling, &mut Handle<Mesh>)>,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut ran: Local<bool>,
 ) {
+    if *ran {
+        return;
+    }
     for (tiling_info, mut mesh_handle) in query.iter_mut() {
         if let Some(mesh) = meshes.get_mut(&mesh_handle) {
             if let Some(VertexAttributeValues::Float32x2(uvs)) =
@@ -28,6 +32,7 @@ fn tiling_system(
                     uv[0] *= tiling_info.x;
                     uv[1] *= tiling_info.y;
                 }
+                *ran = true;
             }
         }
     }
@@ -61,7 +66,7 @@ pub struct TextureTilingPlugin;
 
 impl Plugin for TextureTilingPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system_to_stage(StartupStage::PostStartup, tiling_system)
+        app.add_system(tiling_system)
             .add_system(image_config_system);
     }
 
