@@ -1,6 +1,6 @@
 use bevy::{math::vec3, prelude::*};
 
-use crate::{input::ZoomEvent, Player};
+use crate::{input::ZoomEvent, player::Player};
 
 const ZOOM_FACTOR: f32 = 10.0;
 

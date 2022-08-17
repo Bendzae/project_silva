@@ -5,7 +5,9 @@
 // and 0.0 for "don't use this normal"
 // the w component is whether to use absolute value or not
 struct CustomMaterial {
-    selection: vec4<f32>,
+    color_a: vec4<f32>,
+    color_b: vec4<f32>,
+    intensity: f32,
 };
 
 @group(1) @binding(0)
@@ -22,27 +24,6 @@ fn fragment(
     // For example N.x will be 1.0 for faces pointing directly in
     // the positive x direction
     var Normal = normalize(world_normal);
-
-    // .xxx is called "swizzling", which allows us to select any of
-    // the components of the vector in any order, any amount of times
-    // so Normal.xxx means "a vec3 where every value is the x value"
-    var values_to_show: vec3<f32>;
-
-    let selection = material.selection;
-
-    if selection.x != 0.0 {
-        values_to_show = Normal.xxx;
-    } else if selection.y != 0.0 {
-        values_to_show = Normal.yyy;
-    } else if selection.z != 0.0 {
-        values_to_show = Normal.zzz;
-    } else {
-        values_to_show = Normal.xyz;
-    };
-
-    if selection.w == 1.0 {
-        values_to_show = abs(values_to_show);
-    }
 
     // return vec4(Normal, 1.0);
     // return vec4(values_to_show, 1.0);
@@ -68,14 +49,16 @@ fn fragment(
 
     // Here's were just increasing the contrast with pow 
     // and making it brighter by multiplying by 2
-    fresnel = pow(fresnel, 3.0) * 2.2;
+    fresnel = pow(fresnel, 3.0) * material.intensity;
 
     // return vec4(vec3(fresnel), 1.0);
-    let red = vec3(1.0, 0.0, 0.0);
-    let green = vec3(1.0, 0.502, 0.0);
+    let a = material.color_a;
+    let b = material.color_b;
+    let color_a = vec3(a.x, a.y, a.z);
+    let color_b = vec3(b.x, b.y, b.z);
 
     // let blue = vec3(0.0, 0.4, 0.5);
     // let green_blue = vec3(0.8, 0.802, 1.0);
 
-    return vec4(mix(red, green, fresnel), 1.0);
+    return vec4(mix(color_a, color_b, fresnel), 1.0);
 }
