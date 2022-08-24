@@ -11,7 +11,7 @@ use crate::{
     debug::TestBundle,
     player::PlayerBundle,
     texture_tiling::{TextureTiling, TileableTextures},
-    EnemyBundle, NameV2,
+    NameV2, enemy::EnemyBundle,
 };
 
 pub fn test_scene_spawn_system(
@@ -140,13 +140,22 @@ pub fn test_scene_spawn_system(
             });
         });
 
-    // Enemies
-    // for i in 0..3 {
-    //     commands.spawn_bundle(EnemyBundle {
-    //         name: NameV2(format!("enemy_{i}")),
-    //         ..EnemyBundle::default()
-    //     });
-    // }
+    //Enemies
+    for i in 0..1 {
+        commands.spawn_bundle(EnemyBundle {
+            name: NameV2(format!("enemy_{i}")),
+            scene_bundle: SceneBundle {
+                scene: asset_server.load("spider_creature_rigged.glb#Scene0"),
+                transform: Transform {
+                    translation: Vec3::new(0.0, 0.0, 0.0),
+                    scale: Vec3::new(0.12, 0.12, 0.12),
+                    ..default()
+                },
+                ..default()
+            },
+            ..EnemyBundle::default()
+        });
+    }
 
     // ambient light
     commands.insert_resource(AmbientLight {
@@ -233,7 +242,7 @@ pub fn set_material_system(
                 120 => commands.entity(e).insert(material_brows),
                 2436 => commands.entity(e).insert(material_body),
                 168 => commands.entity(e).insert(material_eyes),
-                _ => commands.entity(e).insert(material_brows),
+                _ => commands.entity(e).insert(material_body),
             };
         }
         *ran = true;

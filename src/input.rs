@@ -30,12 +30,27 @@ pub fn input_system(input: Res<Input<KeyCode>>, mut event: EventWriter<InputEven
     if input.pressed(KeyCode::Down) {
         event.send(InputEvent(InputCommand::DOWN));
     }
+    if input.pressed(KeyCode::A) {
+        event.send(InputEvent(InputCommand::LEFT));
+    }
+    if input.pressed(KeyCode::D) {
+        event.send(InputEvent(InputCommand::RIGHT));
+    }
+    if input.pressed(KeyCode::W) {
+        event.send(InputEvent(InputCommand::UP));
+    }
+    if input.pressed(KeyCode::S) {
+        event.send(InputEvent(InputCommand::DOWN));
+    }
 }
 
 #[derive(Clone, Copy)]
 pub struct ZoomEvent(pub f32);
 
-pub fn scroll_system(mut scroll_events: EventReader<MouseWheel>, mut zoom_event: EventWriter<ZoomEvent>) {
+pub fn scroll_system(
+    mut scroll_events: EventReader<MouseWheel>,
+    mut zoom_event: EventWriter<ZoomEvent>,
+) {
     let mut zoom_value = 0.0;
     for e in scroll_events.iter() {
         zoom_value += e.y;

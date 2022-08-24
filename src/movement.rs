@@ -1,10 +1,12 @@
 use bevy::prelude::*;
 
-use crate::{input::{InputEvent, MouseFloorPosition, InputCommand}, player::{PlayerState, Player, PlayerStateEnum}};
+use crate::{
+    input::{InputCommand, InputEvent, MouseFloorPosition},
+    player::{Player, PlayerState, PlayerStateEnum},
+};
 
 #[derive(Component)]
 pub struct MovementSpeed(pub f32);
-
 
 #[derive(Component)]
 pub struct MovementTarget {
@@ -53,7 +55,13 @@ pub fn player_movement_system(
 
         if mouse_button_event.pressed(MouseButton::Right) {
             for event in mouse_event.iter() {
-                target.current_target = Some(event.0);
+                if let Some(t) = target.current_target {
+                    if (t - event.0).length() >= 0.1 {
+                        target.current_target = Some(event.0);
+                    }
+                } else {
+                    target.current_target = Some(event.0);
+                }
             }
         }
         if let Some(current_target) = target.current_target {

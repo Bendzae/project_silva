@@ -18,33 +18,12 @@ mod movement;
 mod player;
 mod test_scene;
 mod texture_tiling;
+mod enemy;
 
 mod debug;
 
-#[derive(Component)]
+#[derive(Component, Inspectable)]
 pub struct NameV2(pub String);
-
-#[derive(Component)]
-struct Enemy;
-
-#[derive(Bundle)]
-pub struct EnemyBundle {
-    _e: Enemy,
-    name: NameV2,
-    transform: Transform,
-    movement_speed: MovementSpeed,
-}
-
-impl Default for EnemyBundle {
-    fn default() -> EnemyBundle {
-        return EnemyBundle {
-            _e: Enemy,
-            name: NameV2("unknown".to_string()),
-            transform: Transform::default(),
-            movement_speed: MovementSpeed(1.0),
-        };
-    }
-}
 
 fn main() {
     App::new()
