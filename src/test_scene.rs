@@ -141,12 +141,12 @@ pub fn test_scene_spawn_system(
         });
 
     // Enemies
-    for i in 0..3 {
-        commands.spawn_bundle(EnemyBundle {
-            name: NameV2(format!("enemy_{i}")),
-            ..EnemyBundle::default()
-        });
-    }
+    // for i in 0..3 {
+    //     commands.spawn_bundle(EnemyBundle {
+    //         name: NameV2(format!("enemy_{i}")),
+    //         ..EnemyBundle::default()
+    //     });
+    // }
 
     // ambient light
     commands.insert_resource(AmbientLight {
@@ -191,14 +191,6 @@ pub fn test_scene_spawn_system(
         transform: Transform::from_xyz(-6.0, 12.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
-}
-
-pub fn prepare_meshes(handles: Query<&Handle<Mesh>>, mut meshes: ResMut<Assets<Mesh>>) {
-    for handle in handles.iter() {
-        if let Some(mesh) = meshes.get_mut(handle) {
-            mesh.generate_tangents().unwrap();
-        }
-    }
 }
 
 pub fn set_material_system(
@@ -254,7 +246,6 @@ impl Plugin for TestScencePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(MaterialPlugin::<NormalVisualizerMaterial>::default())
             .add_startup_system(test_scene_spawn_system)
-            .add_startup_system_to_stage(StartupStage::PostStartup, prepare_meshes)
             .add_system(set_material_system);
     }
 
